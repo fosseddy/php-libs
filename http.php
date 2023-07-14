@@ -10,7 +10,8 @@ class Error extends Exception
     public $data;
 
     function __construct(int $status_code, string $message = "",
-                         array $data = []) {
+                         array $data = [])
+    {
         parent::__construct($message);
 
         $this->status_code = $status_code;
@@ -18,6 +19,7 @@ class Error extends Exception
     }
 
     function getData(): array
+    {
         return ["message" => $this->message, ...$this->data];
     }
 }
@@ -26,7 +28,8 @@ class Bad_Request extends Error
 {
     public $status_code = 400;
 
-    function __construct(string $message = "", array $data = []) {
+    function __construct(string $message = "", array $data = [])
+    {
         parent::__construct($this->status_code, $message, $data);
     }
 }
@@ -35,7 +38,8 @@ class Not_Found extends Error
 {
     public $status_code = 404;
 
-    function __construct(string $message = "", array $data = []) {
+    function __construct(string $message = "", array $data = [])
+    {
         parent::__construct($this->status_code, $message, $data);
     }
 }
@@ -44,7 +48,8 @@ class Unsupported_Media_Type extends Error
 {
     public $status_code = 415;
 
-    function __construct(string $message = "", array $data = []) {
+    function __construct(string $message = "", array $data = [])
+    {
         parent::__construct($this->status_code, $message, $data);
     }
 }
