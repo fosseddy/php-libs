@@ -22,26 +22,6 @@ class Error extends \Exception
     }
 }
 
-class Bad_Request extends Error
-{
-    public $status_code = 400;
-
-    function __construct(string $message = "", array $data = [])
-    {
-        parent::__construct($this->status_code, $message, $data);
-    }
-}
-
-class Not_Found extends Error
-{
-    public $status_code = 404;
-
-    function __construct(string $message = "", array $data = [])
-    {
-        parent::__construct($this->status_code, $message, $data);
-    }
-}
-
 function redirect(string $url): void
 {
     header("Location: $url");

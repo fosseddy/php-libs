@@ -49,12 +49,11 @@ class App
             $method = strtoupper($_POST["_method"]);
         }
 
-        $route = $this->router->routes[$uri][$method] ?? null;
+        $route = $this->router->routes[$uri] ?? null;
+        if (!$route) throw new http\Error(404, "route does not exist");
 
-        if (!$route)
-        {
-            throw new http\Not_Found("route '$method $uri' does not exist");
-        }
+        $route = $route[$method] ?? null;
+        if (!$route) throw new http\Error(405, "method is not allowed");
 
         foreach ($this->middleware as $fn) $fn($this->ctx);
         foreach ($route["middleware"] as $fn) $fn($this->ctx);
