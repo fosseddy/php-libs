@@ -2,57 +2,44 @@
 
 namespace web;
 
-require_once __DIR__ . "/path.php";
-require_once __DIR__ . "/http.php";
-
-use path, http;
+use http;
 
 // TODO(art): something for REST api?
 
-// TODO(art): add app middleware?
-// TODO(art): App should have router insted of routes
+// TODO(art): add support for placeholders in uri
 
 class App
 {
-    public $routes = [];
+    public $router;
     public $middleware = [];
     public $ctx = [];
 
+    function __construct(string $ns = "")
+    {
+        $this->router = new Router($ns);
+    }
+
     function add_router(Router $r, string $namespace = ""): void
     {
+        $namespace = $this->router->namespace . $namespace;
+
         if ($namespace)
         {
             foreach (array_keys($r->routes) as $uri)
             {
                 $ns_uri = prepend_namespace($namespace, $uri);
-                $this->routes[$ns_uri] = $r->routes[$uri];
+                $this->router->routes[$ns_uri] = $r->routes[$uri];
             }
         }
         else
         {
-            $this->routes = [...$this->routes, ...$r->routes];
-        }
-    }
-
-    function add_route(string $method, string $uri, callable $handler,
-                       array $middleware = []): void
-    {
-        $this->routes[$uri][$method] = [
-            "handler" => $handler,
-            "middleware" => $middleware
-        ];
-    }
-
-    function add_middleware(array $ms): void
-    {
-        foreach ($ms as $m)
-        {
-            $this->middleware[] = $m;
+            $this->router->routes = [...$this->router->routes, ...$r->routes];
         }
     }
 
     function handle_request(): void
     {
+        // TODO(art): should these be passed as arguments?
         $uri = parse_url($_SERVER["REQUEST_URI"])["path"];
         $method = $_SERVER["REQUEST_METHOD"];
 
@@ -62,24 +49,15 @@ class App
             $method = strtoupper($_POST["_method"]);
         }
 
-        $route = $this->routes[$uri][$method] ?? null;
+        $route = $this->router->routes[$uri][$method] ?? null;
 
         if (!$route)
         {
-            throw new http\Not_Found([
-                "message" => "route '$method $uri' does not exist"
-            ]);
+            throw new http\Not_Found("route '$method $uri' does not exist");
         }
 
-        foreach ($this->middleware as $m)
-        {
-            $m($this->ctx);
-        }
-
-        foreach ($route["middleware"] as $m)
-        {
-            $m($this->ctx);
-        }
+        foreach ($this->middleware as $fn) $fn($this->ctx);
+        foreach ($route["middleware"] as $fn) $fn($this->ctx);
 
         $route["handler"]($this->ctx);
     }
@@ -98,9 +76,14 @@ class Router
     function add(string $method, string $uri, callable $handler,
                  array $middleware = []): void
     {
-        if ($this->namespace) $uri = prepend_namespace($this->namespace, $uri);
+        $ns_uri = $uri;
 
-        $this->routes[$uri][$method] = [
+        if ($this->namespace)
+        {
+            $ns_uri = prepend_namespace($this->namespace, $uri);
+        }
+
+        $this->routes[$ns_uri][$method] = [
             "handler" => $handler,
             "middleware" => $middleware
         ];
@@ -132,25 +115,6 @@ class Router
     {
         $this->add("DELETE", $uri, $handler, $middleware);
     }
-}
-
-// TODO(art): think about view\render()
-function render_view(string $path, array $vars = []): void
-{
-    extract($vars);
-    require_once path\from_base("views", "$path.php");
-}
-
-// TODO(art): think about view\partial()
-function partial_view(string $path): string
-{
-    return path\from_base("views", "$path.php");
-}
-
-// TODO(art): http\redirect()
-function redirect(string $url): void
-{
-    header("Location: $url");
 }
 
 function prepend_namespace(string $ns, string $uri): string

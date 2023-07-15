@@ -2,9 +2,7 @@
 
 namespace http;
 
-use Exception;
-
-class Error extends Exception
+class Error extends \Exception
 {
     public $status_code;
     public $data;
@@ -44,12 +42,7 @@ class Not_Found extends Error
     }
 }
 
-class Unsupported_Media_Type extends Error
+function redirect(string $url): void
 {
-    public $status_code = 415;
-
-    function __construct(string $message = "", array $data = [])
-    {
-        parent::__construct($this->status_code, $message, $data);
-    }
+    header("Location: $url");
 }
