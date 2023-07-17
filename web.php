@@ -4,10 +4,6 @@ namespace web;
 
 use http;
 
-// TODO(art): something for REST api?
-
-// TODO(art): add support for placeholders in uri
-
 class App
 {
     public $router;
@@ -30,10 +26,20 @@ class App
                 $ns_uri = prepend_namespace($namespace, $uri);
                 $this->router->routes[$ns_uri] = $r->routes[$uri];
             }
+
+            foreach (array_keys($r->dynamic_routes) as $pattern)
+            {
+                $ns_pattern = prepend_namespace($namespace, $pattern);
+                $this->router->dynamic_routes[$ns_pattern] = $r->dynamic_routes[$pattern];
+            }
         }
         else
         {
             $this->router->routes = [...$this->router->routes, ...$r->routes];
+            $this->router->dynamic_routes = [
+                ...$this->router->dynamic_routes,
+                ...$r->dynamic_routes
+            ];
         }
     }
 
@@ -50,7 +56,31 @@ class App
         }
 
         $route = $this->router->routes[$uri] ?? null;
-        if (!$route) throw new http\Error(404, "route does not exist");
+
+        if (!$route)
+        {
+            foreach (array_keys($this->router->dynamic_routes) as $pattern)
+            {
+                $m = [];
+                $match = preg_match($pattern, $uri, $m);
+
+                if ($match)
+                {
+                    $route = $this->router->dynamic_routes[$pattern];
+
+                    foreach ($m as $k => $v)
+                    {
+                        if (gettype($k) === "string")
+                        {
+                            $this->ctx["params"][$k] = $v;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            if (!$route) throw new http\Error(404, "route does not exist");
+        }
 
         $route = $route[$method] ?? null;
         if (!$route) throw new http\Error(405, "method is not allowed");
@@ -66,6 +96,7 @@ class Router
 {
     public $namespace = "";
     public $routes = [];
+    public $dynamic_routes = [];
 
     function __construct(string $ns = "")
     {
@@ -75,17 +106,39 @@ class Router
     function add(string $method, string $uri, callable $handler,
                  array $middleware = []): void
     {
-        $ns_uri = $uri;
+        $is_dynamic = str_contains($uri, "/:");
 
         if ($this->namespace)
         {
-            $ns_uri = prepend_namespace($this->namespace, $uri);
+            $uri = prepend_namespace($this->namespace, $uri);
         }
 
-        $this->routes[$ns_uri][$method] = [
-            "handler" => $handler,
-            "middleware" => $middleware
-        ];
+        if ($is_dynamic)
+        {
+            $parts = explode("/", $uri);
+
+            foreach ($parts as $i => $it)
+            {
+                if (strlen($it) > 0 && $it[0] === ":")
+                {
+                    $parts[$i] = "(?P<" . substr($it, 1) . ">[^\/]+)";
+                }
+            }
+
+            $uri = "/^" . join("\/", $parts) . "$/";
+
+            $this->dynamic_routes[$uri][$method] = [
+                "handler" => $handler,
+                "middleware" => $middleware
+            ];
+        }
+        else
+        {
+            $this->routes[$uri][$method] = [
+                "handler" => $handler,
+                "middleware" => $middleware
+            ];
+        }
     }
 
     function get(string $uri, callable $handler, array $middleware = []): void
