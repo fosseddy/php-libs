@@ -29,7 +29,7 @@ class App
 
             foreach (array_keys($r->dynamic_routes) as $pattern)
             {
-                $ns_pattern = prepend_namespace($namespace, $pattern);
+                $ns_pattern = "/^" . join("\/", explode("/", $namespace)) . substr($pattern, 2);
                 $this->router->dynamic_routes[$ns_pattern] = $r->dynamic_routes[$pattern];
             }
         }
